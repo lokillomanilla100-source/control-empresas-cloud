@@ -39,16 +39,18 @@ def parse_date_safe(val):
     return None
 
 def format_as_bullet_list(text):
-    """Formatea textos largos o múltiples elementos (poderes, apoderados, escrituras) como listas con viñetas."""
+    """Formatea textos largos o múltiples elementos (apoderados, poderes, escrituras) como listas con viñetas."""
     if not text:
         return "N/D"
     text_str = str(text).strip()
     if not text_str or text_str.upper() in ["N/A", "N/D", "X", "NONE", "NULL"]:
         return "N/D"
     
-    # Separar por saltos de línea, punto y coma, o comas
-    parts = re.split(r'[\n;]|\s*,\s*', text_str)
-    items = [p.strip() for p in parts if p.strip()]
+    # Separar por Y/O, saltos de línea, punto y coma, o comas (preservando apellidos compuestos mexicanos)
+    clean_str = re.sub(r'\s+Y/O\s+', '; ', text_str, flags=re.IGNORECASE)
+    parts = re.split(r'[\n;]|\s*,\s*', clean_str)
+    items = [p.strip() for p in parts if p.strip() and p.strip().upper() not in ["Y", "O", "Y/O"]]
+    
     if len(items) > 1:
         return "\n".join([f"- {it}" for it in items])
     return text_str
@@ -207,7 +209,6 @@ def verify_credentials(user_input, pass_input):
     if u_lower in ["jefe", "lector"] and pass_input == jefe_pass:
         return True, "lector", "Consultor / Lector"
 
-    # Verificación en st.secrets si se especifican otros usuarios
     if user_input in secrets_passwords and pass_input == secrets_passwords[user_input]:
         if u_lower in ["admin", "diego"]:
             return True, "admin_central", "Administrador Central"
@@ -561,13 +562,58 @@ if mode == "🔍 Consultar Empresa":
 
         with t3:
             st.subheader("⚖️ Poderes y Revocaciones Otorgados")
+            
+            col_p1, col_p2 = st.columns([2, 2])
+            with col_p1:
+                fecha_poderes = st.date_input(
+                    "📅 Consultar apoderados vigentes a la fecha:",
+                    value=datetime.date.today(),
+                    help="Filtra los poderes y revocaciones otorgados en o antes de la fecha seleccionada."
+                )
+
             rel_pod = [p for p in all_data["poderes"] if is_related(p)]
-            if rel_pod:
-                df_p = pd.DataFrame(rel_pod)
+
+            # Filtrar poderes hasta fecha_poderes
+            poderes_hasta_fecha = []
+            for p in rel_pod:
+                p_fec = parse_date_safe(p.get("fecha"))
+                if p_fec is None or p_fec <= fecha_poderes:
+                    poderes_hasta_fecha.append(p)
+
+            st.markdown("### 👤 Apoderados Vigentes")
+
+            apoderados_encontrados = []
+            for p in poderes_hasta_fecha:
+                apod_val = p.get("apoderados") or p.get("administrador_unico_gerente")
+                if apod_val and apod_val.strip() not in ["N/D", "N/A", "X", "NONE", "NULL"]:
+                    doc_type = p.get("documento") or "PODER OTORGADO"
+                    fec_str = p.get("fecha") or "N/D"
+                    esc_str = p.get("numero_escritura") or "N/D"
+                    apoderados_encontrados.append({
+                        "apoderado": apod_val,
+                        "documento": doc_type,
+                        "fecha": fec_str,
+                        "escritura": esc_str
+                    })
+
+            if apoderados_encontrados:
+                st.markdown(f"**Apoderados registrados en eventos de poderes al {fecha_poderes.strftime('%d/%m/%Y')}:**")
+                for item in apoderados_encontrados:
+                    st.info(f"📜 **Escritura {item['escritura']} ({item['fecha']}) - {item['documento']}**:\n\n" + format_as_bullet_list(item['apoderado']))
+            else:
+                # FALLBACK OBLIGATORIO: Mostrar apoderados de la tabla principal empresas
+                emp_apod = selected_empresa.get("apoderados") or selected_empresa.get("administrador_unico_gerente")
+                st.markdown("**Apoderados registrados en la sociedad (Constitutivo / Ficha Principal):**")
+                st.markdown(format_as_bullet_list(emp_apod))
+
+            st.markdown("---")
+            st.markdown("### 📜 Historial Completo de Escrituras de Poder y Revocaciones")
+            if poderes_hasta_fecha:
+                df_p = pd.DataFrame(poderes_hasta_fecha)
                 cols_to_show = [c for c in ["tipo_empresa", "numero_escritura", "rpp", "fecha", "notaria", "documento", "administrador_unico_gerente", "apoderados", "delegado", "observaciones"] if c in df_p.columns]
                 st.dataframe(df_p[cols_to_show], use_container_width=True)
             else:
-                st.info("ℹ️ No hay registros adicionales en esta categoría.")
+                st.caption(f"ℹ️ No hay escrituras de poderes adicionales registradas en o antes del {fecha_poderes.strftime('%d/%m/%Y')}.")
 
         with t4:
             st.subheader("📈 Ventas y Movimientos de Capital Variable")
