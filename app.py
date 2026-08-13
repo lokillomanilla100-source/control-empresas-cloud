@@ -135,15 +135,28 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 load_dotenv()
 
+def get_secret_or_env(key_name):
+    """Obtiene una variable probando st.secrets (Streamlit Cloud) y luego os.getenv (Local)."""
+    try:
+        if hasattr(st, "secrets") and key_name in st.secrets:
+            val = st.secrets[key_name]
+            if val:
+                return val
+    except Exception:
+        pass
+    return os.getenv(key_name)
+
 @st.cache_resource
 def get_supabase_client():
-    url = os.getenv("SUPABASE_URL")
-    key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
-    if not url or not key:
+    supabase_url = get_secret_or_env("SUPABASE_URL")
+    supabase_key = get_secret_or_env("SUPABASE_SERVICE_KEY") or get_secret_or_env("SUPABASE_KEY")
+
+    if not supabase_url or not supabase_key:
+        st.error("⚠️ No se encontraron las credenciales de Supabase en Secrets ni en .env")
         return None
     try:
         from supabase import create_client
-        return create_client(url, key)
+        return create_client(supabase_url, supabase_key)
     except Exception as e:
         print("Supabase connection error:", e)
         return None
