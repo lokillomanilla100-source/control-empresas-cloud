@@ -46,7 +46,6 @@ def format_as_bullet_list(text):
     if not text_str or text_str.upper() in ["N/A", "N/D", "X", "NONE", "NULL"]:
         return "N/D"
     
-    # Separar por Y/O, saltos de línea, punto y coma, o comas (preservando apellidos compuestos mexicanos)
     clean_str = re.sub(r'\s+Y/O\s+', '; ', text_str, flags=re.IGNORECASE)
     parts = re.split(r'[\n;]|\s*,\s*', clean_str)
     items = [p.strip() for p in parts if p.strip() and p.strip().upper() not in ["Y", "O", "Y/O"]]
@@ -62,90 +61,120 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for a modern corporate dashboard aesthetic
+# Custom CSS Injected for SaaS Corporate UI/UX Aesthetics
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
     html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
-    /* Main Background */
+    /* Main App Background */
     .stApp {
-        background-color: #0e1117;
-        color: #e0e6ed;
+        background-color: #0b0f19;
+        color: #e2e8f0;
     }
     
-    /* Metric Card Styling */
+    /* Elegant Dark Sidebar */
+    section[data-testid="stSidebar"] {
+        background-color: #0d1322 !important;
+        border-right: 1px solid #1e293b;
+    }
+
+    /* Primary & Secondary Corporate Buttons */
+    .stButton button, div[data-testid="stFormSubmitButton"] button {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        border: none !important;
+        padding: 8px 18px !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    .stButton button:hover, div[data-testid="stFormSubmitButton"] button:hover {
+        background-color: #1d4ed8 !important;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+        transform: translateY(-1px);
+    }
+    
+    /* Bordered Container Cards */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #131b2e !important;
+        border: 1px solid #23314d !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+        padding: 16px !important;
+    }
+
+    /* Metric Cards */
     .metric-card {
-        background: linear-gradient(135deg, #1e2640 0%, #151b2d 100%);
-        border: 1px solid #2e3a59;
+        background: linear-gradient(135deg, #182238 0%, #111827 100%);
+        border: 1px solid #283756;
         border-radius: 12px;
-        padding: 18px 22px;
+        padding: 16px 20px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-        margin-bottom: 12px;
+        margin-bottom: 8px;
     }
     .metric-label {
-        font-size: 0.85rem;
+        font-size: 0.78rem;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: #8b9bb4;
+        color: #94a3b8;
         font-weight: 600;
-        margin-bottom: 6px;
+        margin-bottom: 4px;
     }
     .metric-value {
-        font-size: 1.3rem;
+        font-size: 1.35rem;
         font-weight: 700;
         color: #ffffff;
     }
     .metric-subtitle {
         font-size: 0.8rem;
-        color: #00d2ff;
+        color: #38bdf8;
         margin-top: 4px;
     }
 
-    /* Badge / Pill Styles */
+    /* Badge & Chip Styles */
     .badge-primary {
         background-color: #1e3a8a;
-        color: #93c5fd;
-        padding: 4px 10px;
+        color: #bfdbfe;
+        padding: 4px 12px;
         border-radius: 20px;
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         font-weight: 600;
         display: inline-block;
         margin-right: 6px;
     }
     .badge-success {
         background-color: #064e3b;
-        color: #6ee7b7;
-        padding: 4px 10px;
+        color: #a7f3d0;
+        padding: 4px 12px;
         border-radius: 20px;
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         font-weight: 600;
         display: inline-block;
     }
     .badge-tag {
         background-color: #312e81;
-        color: #c7d2fe;
-        padding: 3px 8px;
+        color: #e0e7ff;
+        padding: 3px 10px;
         border-radius: 14px;
-        font-size: 0.75rem;
+        font-size: 0.78rem;
         margin-right: 4px;
     }
 
-    /* Tab Header Customization */
+    /* Tab Customization */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 12px;
+        gap: 10px;
     }
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        white-space: pre-wrap;
-        background-color: #1a2133;
+        height: 48px;
+        background-color: #131b2e;
         border-radius: 8px;
-        color: #a0aec0;
+        color: #94a3b8;
         font-weight: 600;
-        padding: 10px 18px;
+        padding: 8px 16px;
     }
     .stTabs [aria-selected="true"] {
         background-color: #2563eb !important;
@@ -154,19 +183,10 @@ st.markdown("""
 
     /* Dataframe Styling */
     .stDataFrame {
-        border-radius: 8px;
+        border-radius: 10px;
         overflow: hidden;
-        border: 1px solid #2d3748;
+        border: 1px solid #1e293b;
     }
-
-    /* Form Container */
-    .stForm {
-        background-color: #161e2e;
-        border: 1px solid #2d3748;
-        border-radius: 12px;
-        padding: 24px;
-    }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -224,25 +244,25 @@ if not st.session_state.authenticated:
     col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
     with col_l2:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        with st.form("login_form"):
+        with st.container(border=True):
             st.markdown("<h2 style='text-align: center;'>🏢 Control Empresas Cloud</h2>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: center; color: #8b9bb4;'>Acceso al Expediente Corporativo</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #94a3b8;'>Acceso Seguro al Expediente Corporativo SaaS</p>", unsafe_allow_html=True)
             st.markdown("---")
             user_in = st.text_input("Usuario", placeholder="admin / diego / hermana / jefe")
             pass_in = st.text_input("Contraseña", type="password")
-            submit_login = st.form_submit_button("🔑 Iniciar Sesión", use_container_width=True)
+            submit_login = st.button("Iniciar Sesión", icon=":material/login:", use_container_width=True)
 
-        if submit_login:
-            ok, role, rname = verify_credentials(user_in.strip(), pass_in.strip())
-            if ok:
-                st.session_state.authenticated = True
-                st.session_state.username = user_in.strip()
-                st.session_state.user_role = role
-                st.session_state.role_name = rname
-                st.success(f"Bienvenido {rname}")
-                st.rerun()
-            else:
-                st.error("❌ Usuario o contraseña incorrectos.")
+            if submit_login:
+                ok, role, rname = verify_credentials(user_in.strip(), pass_in.strip())
+                if ok:
+                    st.session_state.authenticated = True
+                    st.session_state.username = user_in.strip()
+                    st.session_state.user_role = role
+                    st.session_state.role_name = rname
+                    st.success(f"Bienvenido {rname}")
+                    st.rerun()
+                else:
+                    st.error("❌ Usuario o contraseña incorrectos.")
     st.stop()
 
 # -----------------------------------------------------------------------------
@@ -331,13 +351,13 @@ def save_local_json(filename, content):
         json.dump(content, f, ensure_ascii=False, indent=2)
 
 # -----------------------------------------------------------------------------
-# 4. NAVEGACIÓN EN SIDEBAR Y CONTROL DE ROLES
+# 4. NAVEGACIÓN EN SIDEBAR Y CONTROL DE ROLES CON MATERIAL SYMBOLS
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("# 🏢 Control Corporativo")
 st.sidebar.markdown(f"👤 **Usuario:** `{st.session_state.username}`")
 st.sidebar.markdown(f"🔑 **Perfil:** `{st.session_state.role_name}`")
 
-if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
+if st.sidebar.button("Cerrar Sesión", icon=":material/logout:", use_container_width=True):
     st.session_state.authenticated = False
     st.session_state.user_role = None
     st.session_state.username = None
@@ -354,13 +374,20 @@ if is_db_connected:
 else:
     st.sidebar.info("📂 Modo Archivos Local (/data_processed/)")
 
-# Filtro de Modalidades por Rol
+# Filtro de Modalidades por Rol usando sintaxis de Material Icons
 if st.session_state.user_role in ["admin_central", "admin"]:
-    available_modes = ["🔍 Consultar Empresa", "➕ Registrar Nueva Empresa", "✏️ Modificar / Editar Empresa"]
+    mode_map = {
+        ":material/search: Consultar Empresa": "🔍 Consultar Empresa",
+        ":material/add_business: Registrar Empresa": "➕ Registrar Nueva Empresa",
+        ":material/edit: Modificar Empresa": "✏️ Modificar / Editar Empresa"
+    }
 else:
-    available_modes = ["🔍 Consultar Empresa"]
+    mode_map = {
+        ":material/search: Consultar Empresa": "🔍 Consultar Empresa"
+    }
 
-mode = st.sidebar.radio("Selecciona Modalidad:", available_modes)
+selected_mode_label = st.sidebar.radio("Modalidad de Operación:", list(mode_map.keys()))
+mode = mode_map[selected_mode_label]
 st.sidebar.markdown("---")
 
 # Buscador Inteligente
@@ -387,7 +414,7 @@ if mode in ["🔍 Consultar Empresa", "✏️ Modificar / Editar Empresa"]:
         st.sidebar.warning("No hay empresas registradas.")
 
 # -----------------------------------------------------------------------------
-# 5. VISTA 1: CONSULTAR EMPRESA ("MODO WOW")
+# 5. VISTA 1: CONSULTAR EMPRESA ("MODO WOW") CON CONTENEDORES Y TARJETAS
 # -----------------------------------------------------------------------------
 if mode == "🔍 Consultar Empresa":
     if not selected_empresa:
@@ -412,7 +439,7 @@ if mode == "🔍 Consultar Empresa":
         )
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # KPI Cards
+        # KPI Cards en Tarjetas Estructuradas
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.markdown(f"""
@@ -470,44 +497,45 @@ if mode == "🔍 Consultar Empresa":
                     return True
             return False
 
-        # Pestañas de detalle
+        # Pestañas con Material Icons en títulos
         t1, t2, t3, t4, t5 = st.tabs([
-            "📋 Constitutivos y Socios",
-            "📍 Domicilios Fiscales",
-            "⚖️ Poderes y Revocaciones",
-            "📈 Ventas / Cap. Variable",
-            "📜 Reformas a Estatutos"
+            ":material/badge: Constitutivos y Socios",
+            ":material/pin_drop: Domicilios Fiscales",
+            ":material/gavel: Poderes y Revocaciones",
+            ":material/show_chart: Ventas / Cap. Variable",
+            ":material/description: Reformas a Estatutos"
         ])
 
         with t1:
             st.subheader("Ficha de Gobierno Corporativo")
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.markdown("**Domicilio Social:**")
-                st.markdown(format_as_bullet_list(selected_empresa.get('domicilio_social')))
-                st.markdown("**Apoderados:**")
-                st.markdown(format_as_bullet_list(selected_empresa.get('apoderados')))
-                st.markdown("**Delegado:**")
-                st.markdown(format_as_bullet_list(selected_empresa.get('delegado')))
-                st.markdown("**ASA Venta:**")
-                st.markdown(format_as_bullet_list(selected_empresa.get('asa_venta')))
-            with col_b:
-                st.markdown("**Nº Poder / Revocación:**")
-                st.markdown(format_as_bullet_list(selected_empresa.get('numero_poder_revocacion')))
-                st.markdown("**Modificación Estatutos:**")
-                st.markdown(format_as_bullet_list(selected_empresa.get('modificacion_estatutos')))
-                st.markdown("**AFAC / CAPI:**")
-                st.markdown(format_as_bullet_list(selected_empresa.get('afac_capi')))
-                st.markdown("**Observaciones:**")
-                st.markdown(format_as_bullet_list(selected_empresa.get('observacion')))
+            with st.container(border=True):
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.markdown("**Domicilio Social:**")
+                    st.markdown(format_as_bullet_list(selected_empresa.get('domicilio_social')))
+                    st.markdown("**Apoderados:**")
+                    st.markdown(format_as_bullet_list(selected_empresa.get('apoderados')))
+                    st.markdown("**Delegado:**")
+                    st.markdown(format_as_bullet_list(selected_empresa.get('delegado')))
+                    st.markdown("**ASA Venta:**")
+                    st.markdown(format_as_bullet_list(selected_empresa.get('asa_venta')))
+                with col_b:
+                    st.markdown("**Nº Poder / Revocación:**")
+                    st.markdown(format_as_bullet_list(selected_empresa.get('numero_poder_revocacion')))
+                    st.markdown("**Modificación Estatutos:**")
+                    st.markdown(format_as_bullet_list(selected_empresa.get('modificacion_estatutos')))
+                    st.markdown("**AFAC / CAPI:**")
+                    st.markdown(format_as_bullet_list(selected_empresa.get('afac_capi')))
+                    st.markdown("**Observaciones:**")
+                    st.markdown(format_as_bullet_list(selected_empresa.get('observacion')))
 
-            st.markdown("---")
+            st.markdown("<br>", unsafe_allow_html=True)
             st.subheader("👥 Estructura de Socios / Accionistas")
             
             cd1, cd2 = st.columns([2, 2])
             with cd1:
                 fecha_consulta = st.date_input(
-                    "📅 Filtrar transmisiones de acciones a la fecha (Opcional):",
+                    "Filtrar transmisiones de acciones a la fecha (Opcional):",
                     value=datetime.date.today(),
                     help="Permite consultar si hubo transmisiones de acciones registradas antes de la fecha seleccionada."
                 )
@@ -566,7 +594,7 @@ if mode == "🔍 Consultar Empresa":
             col_p1, col_p2 = st.columns([2, 2])
             with col_p1:
                 fecha_poderes = st.date_input(
-                    "📅 Consultar apoderados vigentes a la fecha:",
+                    "Consultar apoderados vigentes a la fecha:",
                     value=datetime.date.today(),
                     help="Filtra los poderes y revocaciones otorgados en o antes de la fecha seleccionada."
                 )
@@ -694,7 +722,7 @@ elif mode == "➕ Registrar Nueva Empresa":
                 if s_nom:
                     socios_inputs.append({"nombre_socio": s_nom.strip(), "porcentaje": s_pct.strip() if s_pct else None})
 
-            submit_new = st.form_submit_button("💾 Guardar Empresa en Base de Datos", use_container_width=True)
+            submit_new = st.form_submit_button("Guardar Empresa en Base de Datos", icon=":material/save:", use_container_width=True)
 
         if submit_new:
             if not new_rs:
@@ -801,7 +829,7 @@ elif mode == "✏️ Modificar / Editar Empresa":
 
             edit_obs = st.text_area("Observaciones", value=selected_empresa.get("observacion") or "")
 
-            submit_edit = st.form_submit_button("💾 Actualizar Registro de Empresa", use_container_width=True)
+            submit_edit = st.form_submit_button("Actualizar Registro de Empresa", icon=":material/save:", use_container_width=True)
 
         if submit_edit:
             updated_fields = {
