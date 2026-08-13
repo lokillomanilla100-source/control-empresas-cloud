@@ -61,30 +61,77 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS Injected for SaaS Corporate UI/UX Aesthetics
+# Custom CSS & Google Fonts Injected for SaaS Corporate UI/UX Aesthetics (Cero Emojis)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
     
+    :root {
+        --bg-main: #0b0f19;
+        --bg-sidebar: #0d1322;
+        --bg-card: #131b2e;
+        --border-color: #1e293b;
+        --accent-blue: #2563eb;
+        --accent-hover: #1d4ed8;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+    }
+
     html, body, [class*="css"] {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
     /* Main App Background */
     .stApp {
-        background-color: #0b0f19;
-        color: #e2e8f0;
+        background-color: var(--bg-main);
+        color: var(--text-primary);
     }
     
-    /* Elegant Dark Sidebar */
+    /* Dark Corporate Sidebar */
     section[data-testid="stSidebar"] {
-        background-color: #0d1322 !important;
-        border-right: 1px solid #1e293b;
+        background-color: var(--bg-sidebar) !important;
+        border-right: 1px solid var(--border-color);
     }
 
-    /* Primary & Secondary Corporate Buttons */
+    /* Minimalist Profile Card in Sidebar */
+    .profile-card {
+        background-color: #162035;
+        border: 1px solid #233252;
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-bottom: 16px;
+    }
+    .user-name {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #ffffff;
+    }
+    .user-role {
+        font-size: 0.8rem;
+        color: #38bdf8;
+        font-weight: 500;
+        margin-top: 2px;
+    }
+    .led-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.75rem;
+        color: #94a3b8;
+        margin-top: 8px;
+    }
+    .led-dot {
+        height: 8px;
+        width: 8px;
+        background-color: #10b981;
+        border-radius: 50%;
+        box-shadow: 0 0 8px #10b981;
+    }
+
+    /* Corporate Primary Buttons */
     .stButton button, div[data-testid="stFormSubmitButton"] button {
-        background-color: #2563eb !important;
+        background-color: var(--accent-blue) !important;
         color: #ffffff !important;
         border-radius: 8px !important;
         font-weight: 600 !important;
@@ -93,14 +140,14 @@ st.markdown("""
         transition: all 0.2s ease-in-out !important;
     }
     .stButton button:hover, div[data-testid="stFormSubmitButton"] button:hover {
-        background-color: #1d4ed8 !important;
+        background-color: var(--accent-hover) !important;
         box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
         transform: translateY(-1px);
     }
     
-    /* Bordered Container Cards */
+    /* Container Cards */
     div[data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: #131b2e !important;
+        background-color: var(--bg-card) !important;
         border: 1px solid #23314d !important;
         border-radius: 12px !important;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
@@ -120,7 +167,7 @@ st.markdown("""
         font-size: 0.78rem;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: #94a3b8;
+        color: var(--text-secondary);
         font-weight: 600;
         margin-bottom: 4px;
     }
@@ -170,14 +217,14 @@ st.markdown("""
     }
     .stTabs [data-baseweb="tab"] {
         height: 48px;
-        background-color: #131b2e;
+        background-color: var(--bg-card);
         border-radius: 8px;
-        color: #94a3b8;
+        color: var(--text-secondary);
         font-weight: 600;
         padding: 8px 16px;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #2563eb !important;
+        background-color: var(--accent-blue) !important;
         color: #ffffff !important;
     }
 
@@ -185,7 +232,7 @@ st.markdown("""
     .stDataFrame {
         border-radius: 10px;
         overflow: hidden;
-        border: 1px solid #1e293b;
+        border: 1px solid var(--border-color);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -245,8 +292,8 @@ if not st.session_state.authenticated:
     with col_l2:
         st.markdown("<br><br>", unsafe_allow_html=True)
         with st.container(border=True):
-            st.markdown("<h2 style='text-align: center;'>🏢 Control Empresas Cloud</h2>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: center; color: #94a3b8;'>Acceso Seguro al Expediente Corporativo SaaS</p>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center;'>Control Empresas Cloud</h2>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #94a3b8;'>Acceso al Expediente Corporativo</p>", unsafe_allow_html=True)
             st.markdown("---")
             user_in = st.text_input("Usuario", placeholder="admin / diego / hermana / jefe")
             pass_in = st.text_input("Contraseña", type="password")
@@ -259,10 +306,10 @@ if not st.session_state.authenticated:
                     st.session_state.username = user_in.strip()
                     st.session_state.user_role = role
                     st.session_state.role_name = rname
-                    st.success(f"Bienvenido {rname}")
+                    st.success(f"Sesión iniciada como {rname}")
                     st.rerun()
                 else:
-                    st.error("❌ Usuario o contraseña incorrectos.")
+                    st.error("Usuario o contraseña incorrectos.")
     st.stop()
 
 # -----------------------------------------------------------------------------
@@ -351,11 +398,21 @@ def save_local_json(filename, content):
         json.dump(content, f, ensure_ascii=False, indent=2)
 
 # -----------------------------------------------------------------------------
-# 4. NAVEGACIÓN EN SIDEBAR Y CONTROL DE ROLES CON MATERIAL SYMBOLS
+# 4. NAVEGACIÓN EN SIDEBAR Y TARJETA DE USUARIO MINIMALISTA
 # -----------------------------------------------------------------------------
-st.sidebar.markdown("# 🏢 Control Corporativo")
-st.sidebar.markdown(f"👤 **Usuario:** `{st.session_state.username}`")
-st.sidebar.markdown(f"🔑 **Perfil:** `{st.session_state.role_name}`")
+st.sidebar.markdown("## Control Corporativo")
+
+# Tarjeta de Usuario Minimalista en Sidebar con LED Indicator
+db_status_text = "Supabase PostgreSQL" if supabase else "Archivos Locales"
+st.sidebar.markdown(f"""
+<div class="profile-card">
+    <div class="user-name">{st.session_state.username}</div>
+    <div class="user-role">{st.session_state.role_name}</div>
+    <div class="led-status">
+        <span class="led-dot"></span> Conectado ({db_status_text})
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 if st.sidebar.button("Cerrar Sesión", icon=":material/logout:", use_container_width=True):
     st.session_state.authenticated = False
@@ -369,28 +426,25 @@ st.sidebar.markdown("---")
 all_data, is_db_connected = fetch_all_data()
 empresas = all_data["empresas"]
 
-if is_db_connected:
-    st.sidebar.success("🟢 Conectado a Supabase")
-else:
-    st.sidebar.info("📂 Modo Archivos Local (/data_processed/)")
-
-# Filtro de Modalidades por Rol usando sintaxis de Material Icons
+# Filtro de Modalidades por Rol usando Material Icons
 if st.session_state.user_role in ["admin_central", "admin"]:
     mode_map = {
-        ":material/search: Consultar Empresa": "🔍 Consultar Empresa",
-        ":material/add_business: Registrar Empresa": "➕ Registrar Nueva Empresa",
-        ":material/edit: Modificar Empresa": "✏️ Modificar / Editar Empresa"
+        ":material/search: Consultar Empresa": "Consultar Empresa",
+        ":material/person_search: Buscador de Personas 360°": "Buscador de Personas",
+        ":material/add_business: Registrar Empresa": "Registrar Empresa",
+        ":material/edit: Modificar Empresa": "Modificar Empresa"
     }
 else:
     mode_map = {
-        ":material/search: Consultar Empresa": "🔍 Consultar Empresa"
+        ":material/search: Consultar Empresa": "Consultar Empresa",
+        ":material/person_search: Buscador de Personas 360°": "Buscador de Personas"
     }
 
-selected_mode_label = st.sidebar.radio("Modalidad de Operación:", list(mode_map.keys()))
+selected_mode_label = st.sidebar.radio("Navegación del Sistema:", list(mode_map.keys()))
 mode = mode_map[selected_mode_label]
 st.sidebar.markdown("---")
 
-# Buscador Inteligente
+# Buscador Inteligente de Empresa para Modos de Consulta y Edición
 emp_options = {}
 for i, emp in enumerate(empresas):
     rs = emp.get("razon_social") or "SIN RAZÓN SOCIAL"
@@ -401,10 +455,10 @@ for i, emp in enumerate(empresas):
 selected_empresa_idx = None
 selected_empresa = None
 
-if mode in ["🔍 Consultar Empresa", "✏️ Modificar / Editar Empresa"]:
+if mode in ["Consultar Empresa", "Modificar Empresa"]:
     if emp_options:
         search_selection = st.sidebar.selectbox(
-            "🔍 Buscar Empresa (Razón Social o RFC):",
+            "Buscar Empresa (Razón Social o RFC):",
             options=list(emp_options.keys())
         )
         selected_empresa_idx = emp_options.get(search_selection)
@@ -414,11 +468,11 @@ if mode in ["🔍 Consultar Empresa", "✏️ Modificar / Editar Empresa"]:
         st.sidebar.warning("No hay empresas registradas.")
 
 # -----------------------------------------------------------------------------
-# 5. VISTA 1: CONSULTAR EMPRESA ("MODO WOW") CON CONTENEDORES Y TARJETAS
+# 5. VISTA 1: CONSULTAR EMPRESA (MODO CORPORATIVO WOW)
 # -----------------------------------------------------------------------------
-if mode == "🔍 Consultar Empresa":
+if mode == "Consultar Empresa":
     if not selected_empresa:
-        st.warning("⚠️ No se ha seleccionado ninguna empresa para consultar.")
+        st.warning("No se ha seleccionado ninguna empresa para consultar.")
     else:
         # Header Principal
         rs = selected_empresa.get("razon_social") or "Sin Razón Social"
@@ -428,7 +482,7 @@ if mode == "🔍 Consultar Empresa":
         if isinstance(tags, str):
             tags = [t.strip() for t in tags.split(",")]
 
-        st.markdown(f"## 🏢 {rs}")
+        st.markdown(f"## {rs}")
         
         tags_html = "".join([f'<span class="badge-tag">{t}</span>' for t in tags])
         st.markdown(
@@ -497,7 +551,7 @@ if mode == "🔍 Consultar Empresa":
                     return True
             return False
 
-        # Pestañas con Material Icons en títulos
+        # Pestañas con Material Icons
         t1, t2, t3, t4, t5 = st.tabs([
             ":material/badge: Constitutivos y Socios",
             ":material/pin_drop: Domicilios Fiscales",
@@ -530,7 +584,7 @@ if mode == "🔍 Consultar Empresa":
                     st.markdown(format_as_bullet_list(selected_empresa.get('observacion')))
 
             st.markdown("<br>", unsafe_allow_html=True)
-            st.subheader("👥 Estructura de Socios / Accionistas")
+            st.subheader("Estructura de Socios / Accionistas")
             
             cd1, cd2 = st.columns([2, 2])
             with cd1:
@@ -543,7 +597,7 @@ if mode == "🔍 Consultar Empresa":
             rel_socios = [s for s in all_data["socios"] if is_related(s)]
             rel_ventas = [v for v in all_data["ventas"] if is_related(v)]
 
-            # 1. MOSTRAR SIEMPRE LA LISTA DE SOCIOS VINCULADOS DE LA TABLA 'socios'
+            # 1. MOSTRAR SIEMPRE LA LISTA DE SOCIOS VINCULADOS
             if rel_socios:
                 df_s = pd.DataFrame(rel_socios)
                 cols_to_show = [c for c in ["nombre_socio", "porcentaje", "porcentaje_participacion", "tipo_socio", "origen_tabla"] if c in df_s.columns]
@@ -556,9 +610,9 @@ if mode == "🔍 Consultar Empresa":
                 }
                 st.dataframe(df_s[cols_to_show].rename(columns=rename_dict), use_container_width=True)
             else:
-                st.info("ℹ️ No hay registros de socios registrados para esta empresa.")
+                st.info("No hay registros de socios registrados para esta empresa.")
 
-            # 2. MOSTRAR TRANSMISIONES / VENTAS DE ACCIONES HASTA LA FECHA CONSULTADA
+            # 2. MOSTRAR TRANSMISIONES HASTA LA FECHA CONSULTADA
             ventas_hasta_fecha = []
             for v in rel_ventas:
                 v_fec = parse_date_safe(v.get("fecha"))
@@ -566,7 +620,7 @@ if mode == "🔍 Consultar Empresa":
                     ventas_hasta_fecha.append(v)
 
             if ventas_hasta_fecha:
-                st.markdown(f"**📜 Transmisiones / Asambleas de Acciones Registradas hasta el {fecha_consulta.strftime('%d/%m/%Y')} ({len(ventas_hasta_fecha)}):**")
+                st.markdown(f"**Transmisiones / Asambleas de Acciones Registradas hasta el {fecha_consulta.strftime('%d/%m/%Y')} ({len(ventas_hasta_fecha)}):**")
                 df_v_summary = pd.DataFrame([{
                     "Nº Escritura": v.get("numero_escritura") or "N/D",
                     "Fecha": v.get("fecha") or "N/D",
@@ -576,21 +630,20 @@ if mode == "🔍 Consultar Empresa":
                 } for v in ventas_hasta_fecha])
                 st.dataframe(df_v_summary, use_container_width=True)
             else:
-                st.caption(f"ℹ️ No hay transmisiones de acciones adicionales registradas en o antes del {fecha_consulta.strftime('%d/%m/%Y')}.")
+                st.caption(f"No hay transmisiones de acciones adicionales registradas en o antes del {fecha_consulta.strftime('%d/%m/%Y')}.")
 
         with t2:
-            st.subheader("📍 Domicilios Registrados")
+            st.subheader("Domicilios Registrados")
             rel_dom = [d for d in all_data["domicilios"] if is_related(d)]
             if rel_dom:
                 df_d = pd.DataFrame(rel_dom)
                 cols_to_show = [c for c in ["estado", "municipio_delegacion", "conocido", "domicilio_fiscal", "estatus"] if c in df_d.columns]
                 st.dataframe(df_d[cols_to_show], use_container_width=True)
             else:
-                st.info("ℹ️ No hay registros adicionales en esta categoría.")
+                st.info("No hay registros adicionales en esta categoría.")
 
         with t3:
-            st.subheader("⚖️ Poderes y Revocaciones Otorgados")
-            
+            st.subheader("Poderes y Revocaciones Otorgados")
             col_p1, col_p2 = st.columns([2, 2])
             with col_p1:
                 fecha_poderes = st.date_input(
@@ -601,14 +654,13 @@ if mode == "🔍 Consultar Empresa":
 
             rel_pod = [p for p in all_data["poderes"] if is_related(p)]
 
-            # Filtrar poderes hasta fecha_poderes
             poderes_hasta_fecha = []
             for p in rel_pod:
                 p_fec = parse_date_safe(p.get("fecha"))
                 if p_fec is None or p_fec <= fecha_poderes:
                     poderes_hasta_fecha.append(p)
 
-            st.markdown("### 👤 Apoderados Vigentes")
+            st.markdown("### Apoderados Vigentes")
 
             apoderados_encontrados = []
             for p in poderes_hasta_fecha:
@@ -627,50 +679,254 @@ if mode == "🔍 Consultar Empresa":
             if apoderados_encontrados:
                 st.markdown(f"**Apoderados registrados en eventos de poderes al {fecha_poderes.strftime('%d/%m/%Y')}:**")
                 for item in apoderados_encontrados:
-                    st.info(f"📜 **Escritura {item['escritura']} ({item['fecha']}) - {item['documento']}**:\n\n" + format_as_bullet_list(item['apoderado']))
+                    st.info(f"Escritura {item['escritura']} ({item['fecha']}) - {item['documento']}:\n\n" + format_as_bullet_list(item['apoderado']))
             else:
-                # FALLBACK OBLIGATORIO: Mostrar apoderados de la tabla principal empresas
                 emp_apod = selected_empresa.get("apoderados") or selected_empresa.get("administrador_unico_gerente")
                 st.markdown("**Apoderados registrados en la sociedad (Constitutivo / Ficha Principal):**")
                 st.markdown(format_as_bullet_list(emp_apod))
 
             st.markdown("---")
-            st.markdown("### 📜 Historial Completo de Escrituras de Poder y Revocaciones")
+            st.markdown("### Historial Completo de Escrituras de Poder y Revocaciones")
             if poderes_hasta_fecha:
                 df_p = pd.DataFrame(poderes_hasta_fecha)
                 cols_to_show = [c for c in ["tipo_empresa", "numero_escritura", "rpp", "fecha", "notaria", "documento", "administrador_unico_gerente", "apoderados", "delegado", "observaciones"] if c in df_p.columns]
                 st.dataframe(df_p[cols_to_show], use_container_width=True)
             else:
-                st.caption(f"ℹ️ No hay escrituras de poderes adicionales registradas en o antes del {fecha_poderes.strftime('%d/%m/%Y')}.")
+                st.caption(f"No hay escrituras de poderes adicionales registradas en o antes del {fecha_poderes.strftime('%d/%m/%Y')}.")
 
         with t4:
-            st.subheader("📈 Ventas y Movimientos de Capital Variable")
+            st.subheader("Ventas y Movimientos de Capital Variable")
             rel_vta = [v for v in all_data["ventas"] if is_related(v)]
             if rel_vta:
                 df_v = pd.DataFrame(rel_vta)
                 cols_to_show = [c for c in ["tipo_empresa", "numero_escritura", "rpp", "fecha", "notaria", "documento", "domicilio_social", "capital_total_fijo", "socios_capital_variable", "administrador_unico_gerente", "apoderados", "observaciones"] if c in df_v.columns]
                 st.dataframe(df_v[cols_to_show], use_container_width=True)
             else:
-                st.info("ℹ️ No hay registros adicionales en esta categoría.")
+                st.info("No hay registros adicionales en esta categoría.")
 
         with t5:
-            st.subheader("📜 Reformas a Estatutos")
+            st.subheader("Reformas a Estatutos")
             rel_est = [e for e in all_data["estatutos"] if is_related(e)]
             if rel_est:
                 df_e = pd.DataFrame(rel_est)
                 cols_to_show = [c for c in ["numero_escritura", "rpp", "fecha", "notaria", "documento", "domicilio_social", "capital_total_fijo", "administrador_unico_gerente", "apoderados", "observaciones"] if c in df_e.columns]
                 st.dataframe(df_e[cols_to_show], use_container_width=True)
             else:
-                st.info("ℹ️ No hay registros adicionales en esta categoría.")
+                st.info("No hay registros adicionales en esta categoría.")
 
 # -----------------------------------------------------------------------------
-# 6. VISTA 2: REGISTRAR NUEVA EMPRESA
+# 6. VISTA NUEVA: BUSCADOR DE PERSONAS / HISTORIAL 360°
 # -----------------------------------------------------------------------------
-elif mode == "➕ Registrar Nueva Empresa":
+elif mode == "Buscador de Personas":
+    st.markdown("## Expediente y Búsqueda por Persona (Historial 360°)")
+    st.markdown("Consulte el expediente corporativo integral de cualquier socio, apoderado o directivo a través de todas las sociedades registradas.")
+    st.markdown("---")
+
+    query_person = st.text_input(
+        "Ingrese el nombre o apellidos de la persona:",
+        placeholder="ej. Gerardo Rejón / Ricardo Ruiz",
+        help="Realiza una búsqueda cruzada en Socios, Apoderados, Administradores, Comisarios y Delegados."
+    )
+
+    if query_person and len(query_person.strip()) >= 2:
+        q_norm = normalize_name(query_person)
+
+        person_results = {
+            "socios": [],
+            "poderes": [],
+            "cargos": []
+        }
+
+        # 1. Búsqueda en Socios
+        for s in all_data["socios"]:
+            nom_s = normalize_name(s.get("nombre_socio"))
+            if q_norm in nom_s:
+                person_results["socios"].append({
+                    "Empresa / Sociedad": s.get("razon_social_empresa") or "N/D",
+                    "RFC Empresa": s.get("rfc_empresa") or "N/D",
+                    "Socio / Accionista": s.get("nombre_socio"),
+                    "Participación / Acciones": s.get("porcentaje") or s.get("porcentaje_participacion") or "N/D",
+                    "Tipo Socio": s.get("tipo_socio") or "CAPITAL_FIJO",
+                    "Origen Registro": s.get("origen_tabla") or "CONSTITUCIÓN"
+                })
+
+        # 2. Búsqueda en Empresas (Ficha Principal)
+        for emp in all_data["empresas"]:
+            emp_name = emp.get("razon_social") or "SIN RAZÓN SOCIAL"
+            rfc = emp.get("rfc") or "SIN RFC"
+            
+            # Admin / Gerente
+            admin = emp.get("administrador_unico_gerente")
+            if admin and q_norm in normalize_name(admin):
+                person_results["cargos"].append({
+                    "Empresa / Sociedad": emp_name,
+                    "RFC Empresa": rfc,
+                    "Cargo / Función": "Administrador Único / Gerente",
+                    "Detalle Representante": admin,
+                    "Origen Protocolización": f"Escritura {emp.get('numero_escritura') or 'Constitutiva'}"
+                })
+            
+            # Comisario
+            com = emp.get("comisario")
+            if com and q_norm in normalize_name(com):
+                person_results["cargos"].append({
+                    "Empresa / Sociedad": emp_name,
+                    "RFC Empresa": rfc,
+                    "Cargo / Función": "Comisario",
+                    "Detalle Representante": com,
+                    "Origen Protocolización": f"Escritura {emp.get('numero_escritura') or 'Constitutiva'}"
+                })
+
+            # Delegado
+            del_g = emp.get("delegado")
+            if del_g and q_norm in normalize_name(del_g):
+                person_results["cargos"].append({
+                    "Empresa / Sociedad": emp_name,
+                    "RFC Empresa": rfc,
+                    "Cargo / Función": "Delegado Especial",
+                    "Detalle Representante": del_g,
+                    "Origen Protocolización": f"Escritura {emp.get('numero_escritura') or 'Constitutiva'}"
+                })
+
+            # Apoderados principales
+            apod = emp.get("apoderados")
+            if apod and q_norm in normalize_name(apod):
+                person_results["poderes"].append({
+                    "Empresa / Sociedad": emp_name,
+                    "RFC Empresa": rfc,
+                    "Tipo Poder / Facultades": "Apoderado General (Ficha Principal)",
+                    "Nº Escritura": emp.get("numero_escritura") or "N/D",
+                    "Notaría": emp.get("notaria") or "N/D",
+                    "Fecha": emp.get("fecha") or "N/D",
+                    "Detalle Facultades": apod
+                })
+
+        # 3. Búsqueda en Poderes (Eventos)
+        for p in all_data["poderes"]:
+            emp_name = p.get("razon_social") or "N/D"
+            rfc = p.get("rfc") or "N/D"
+            
+            apod = p.get("apoderados")
+            if apod and q_norm in normalize_name(apod):
+                person_results["poderes"].append({
+                    "Empresa / Sociedad": emp_name,
+                    "RFC Empresa": rfc,
+                    "Tipo Poder / Facultades": p.get("documento") or "PODER OTORGADO",
+                    "Nº Escritura": p.get("numero_escritura") or "N/D",
+                    "Notaría": p.get("notaria") or "N/D",
+                    "Fecha": p.get("fecha") or "N/D",
+                    "Detalle Facultades": apod
+                })
+
+            admin = p.get("administrador_unico_gerente")
+            if admin and q_norm in normalize_name(admin):
+                person_results["cargos"].append({
+                    "Empresa / Sociedad": emp_name,
+                    "RFC Empresa": rfc,
+                    "Cargo / Función": "Administrador / Gerente (Escritura)",
+                    "Detalle Representante": admin,
+                    "Origen Protocolización": f"Escritura {p.get('numero_escritura') or 'N/D'}"
+                })
+
+        # 4. Búsqueda en Ventas / Asambleas
+        for v in all_data["ventas"]:
+            emp_name = v.get("razon_social") or "N/D"
+            rfc = v.get("rfc") or "N/D"
+            
+            soc_var = v.get("socios_capital_variable") or v.get("observaciones")
+            if soc_var and q_norm in normalize_name(soc_var):
+                person_results["socios"].append({
+                    "Empresa / Sociedad": emp_name,
+                    "RFC Empresa": rfc,
+                    "Socio / Accionista": q_norm,
+                    "Participación / Acciones": "Movimiento Cap. Variable",
+                    "Tipo Socio": "CAPITAL_VARIABLE",
+                    "Origen Registro": f"Asamblea {v.get('fecha') or 'N/D'}"
+                })
+
+        # Calcular métricas consolidadas de la persona
+        empresas_vinculadas = set()
+        for item in person_results["socios"] + person_results["poderes"] + person_results["cargos"]:
+            if item.get("Empresa / Sociedad"):
+                empresas_vinculadas.add(item["Empresa / Sociedad"])
+
+        st.markdown(f"### Expediente Corporativo de: `{query_person.upper()}`")
+        
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        with col_m1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Empresas Vinculadas</div>
+                <div class="metric-value">{len(empresas_vinculadas)}</div>
+                <div class="metric-subtitle">Sociedades registradas</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_m2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Participaciones Accionarias</div>
+                <div class="metric-value">{len(person_results['socios'])}</div>
+                <div class="metric-subtitle">Registros de socio</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_m3:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Poderes Otorgados</div>
+                <div class="metric-value">{len(person_results['poderes'])}</div>
+                <div class="metric-subtitle">Escrituras de apoderamiento</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_m4:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Cargos Corporativos</div>
+                <div class="metric-value">{len(person_results['cargos'])}</div>
+                <div class="metric-subtitle">Admin / Comisario / Gerente</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.write("")
+
+        # Pestañas de Historial 360°
+        pt1, pt2, pt3 = st.tabs([
+            ":material/pie_chart: Participación Accionaria",
+            ":material/gavel: Poderes y Apoderamientos",
+            ":material/badge: Cargos Corporativos"
+        ])
+
+        with pt1:
+            st.subheader("Participación Accionaria y Registro de Socios")
+            if person_results["socios"]:
+                st.dataframe(pd.DataFrame(person_results["socios"]), use_container_width=True)
+            else:
+                st.info("No se encontraron participaciones accionarias registradas a este nombre.")
+
+        with pt2:
+            st.subheader("Poderes, Facultades y Apoderamientos")
+            if person_results["poderes"]:
+                st.dataframe(pd.DataFrame(person_results["poderes"]), use_container_width=True)
+            else:
+                st.info("No se encontraron escrituras de poder o apoderamientos a este nombre.")
+
+        with pt3:
+            st.subheader("Cargos de Administración, Gobierno y Representación")
+            if person_results["cargos"]:
+                st.dataframe(pd.DataFrame(person_results["cargos"]), use_container_width=True)
+            else:
+                st.info("No se encontraron cargos de Administración, Comisario o Gerencia a este nombre.")
+
+    elif query_person:
+        st.info("Ingrese al menos 2 caracteres para realizar la búsqueda de personas.")
+
+# -----------------------------------------------------------------------------
+# 7. VISTA 3: REGISTRAR NUEVA EMPRESA
+# -----------------------------------------------------------------------------
+elif mode == "Registrar Empresa":
     if st.session_state.user_role not in ["admin_central", "admin"]:
-        st.error("🚫 Acceso Denegado: Su perfil no tiene permisos para crear nuevas empresas.")
+        st.error("Acceso Denegado: Su perfil no tiene permisos para crear nuevas empresas.")
     else:
-        st.markdown("## ➕ Registrar Nueva Empresa en el Sistema")
+        st.markdown("## Registrar Nueva Empresa en el Sistema")
         st.markdown("Complete el formulario para incorporar una nueva sociedad al expediente corporativo.")
         st.markdown("---")
 
@@ -726,7 +982,7 @@ elif mode == "➕ Registrar Nueva Empresa":
 
         if submit_new:
             if not new_rs:
-                st.error("⚠️ El campo Razón Social es obligatorio.")
+                st.error("El campo Razón Social es obligatorio.")
             else:
                 new_empresa_dict = {
                     "razon_social": new_rs.strip().upper(),
@@ -778,18 +1034,18 @@ elif mode == "➕ Registrar Nueva Empresa":
                     save_local_json("socios.json", local_socios)
 
                 st.cache_data.clear()
-                st.success(f"🎉 ¡Empresa '{new_rs}' registrada exitosamente en el sistema!")
+                st.success(f"Empresa '{new_rs}' registrada exitosamente en el sistema.")
 
 # -----------------------------------------------------------------------------
-# 7. VISTA 3: MODIFICAR / EDITAR EMPRESA
+# 8. VISTA 4: MODIFICAR / EDITAR EMPRESA
 # -----------------------------------------------------------------------------
-elif mode == "✏️ Modificar / Editar Empresa":
+elif mode == "Modificar Empresa":
     if st.session_state.user_role not in ["admin_central", "admin"]:
-        st.error("🚫 Acceso Denegado: Su perfil no tiene permisos para editar información.")
+        st.error("Acceso Denegado: Su perfil no tiene permisos para editar información.")
     elif not selected_empresa:
-        st.warning("⚠️ Selecciona una empresa en la barra lateral para editar sus datos.")
+        st.warning("Selecciona una empresa en la barra lateral para editar sus datos.")
     else:
-        st.markdown(f"## ✏️ Editar Empresa: {selected_empresa.get('razon_social')}")
+        st.markdown(f"## Editar Empresa: {selected_empresa.get('razon_social')}")
         st.markdown("---")
 
         with st.form("form_editar_empresa"):
@@ -853,7 +1109,7 @@ elif mode == "✏️ Modificar / Editar Empresa":
             if supabase and selected_empresa.get("id"):
                 try:
                     supabase.table("empresas").update(updated_fields).eq("id", selected_empresa["id"]).execute()
-                    st.success("✅ Empresa actualizada en Supabase con éxito.")
+                    st.success("Empresa actualizada en Supabase con éxito.")
                 except Exception as e:
                     st.warning(f"No se pudo actualizar en Supabase: {e}")
 
@@ -863,4 +1119,4 @@ elif mode == "✏️ Modificar / Editar Empresa":
                 save_local_json("empresas.json", local_empresas)
 
             st.cache_data.clear()
-            st.success("🎉 Datos actualizados correctamente en el sistema.")
+            st.success("Datos actualizados correctamente en el sistema.")
