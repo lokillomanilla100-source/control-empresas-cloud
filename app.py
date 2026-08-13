@@ -15,6 +15,31 @@ def normalize_name(name):
         return ""
     return re.sub(r'\s+', ' ', str(name).strip().upper())
 
+def parse_date_safe(val):
+    """Parsea fechas en diversos formatos string (ISO, DD/MM/YYYY) a datetime.date."""
+    if not val:
+        return None
+    if isinstance(val, datetime.datetime):
+        return val.date()
+    if isinstance(val, datetime.date):
+        return val
+    val_str = str(val).strip()
+    # Formato YYYY-MM-DD
+    m1 = re.search(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})', val_str)
+    if m1:
+        try:
+            return datetime.date(int(m1.group(1)), int(m1.group(2)), int(m1.group(3)))
+        except ValueError:
+            pass
+    # Formato DD/MM/YYYY
+    m2 = re.search(r'(\d{1,2})[-/](\d{1,2})[-/](\d{4})', val_str)
+    if m2:
+        try:
+            return datetime.date(int(m2.group(3)), int(m2.group(2)), int(m2.group(1)))
+        except ValueError:
+            pass
+    return None
+
 st.set_page_config(
     page_title="Control Empresas Cloud",
     page_icon="🏢",
@@ -131,10 +156,74 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. SUPABASE CONNECTION & DIAGNOSTICS PROVIDER
+# 2. LOGIN & AUTENTICACIÓN POR ROLES
 # -----------------------------------------------------------------------------
-load_dotenv()
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "user_role" not in st.session_state:
+    st.session_state.user_role = None
+if "username" not in st.session_state:
+    st.session_state.username = None
+if "role_name" not in st.session_state:
+    st.session_state.role_name = None
 
+def verify_credentials(user_input, pass_input):
+    """Verifica credenciales contra st.secrets['passwords'], .env o valores por defecto."""
+    load_dotenv()
+    secrets_passwords = {}
+    try:
+        if hasattr(st, "secrets") and "passwords" in st.secrets:
+            secrets_passwords = dict(st.secrets["passwords"])
+    except Exception:
+        pass
+    
+    # 1. Perfil Admin (Hermana)
+    admin_pass = secrets_passwords.get("admin") or os.getenv("ADMIN_PASSWORD", "admin")
+    if user_input.lower() == "admin" and pass_input == admin_pass:
+        return True, "admin", "Administrador (Hermana)"
+
+    # 2. Perfil Lector (Jefe)
+    lector_pass = secrets_passwords.get("jefe") or secrets_passwords.get("lector") or os.getenv("LECTOR_PASSWORD", "jefe")
+    if user_input.lower() in ["jefe", "lector"] and pass_input == lector_pass:
+        return True, "lector", "Consultor / Lector (Jefe)"
+
+    # 3. Consulta dinámica en st.secrets["passwords"]
+    if user_input in secrets_passwords and pass_input == secrets_passwords[user_input]:
+        role = "admin" if "admin" in user_input.lower() else "lector"
+        rname = "Administrador (Hermana)" if role == "admin" else "Consultor / Lector (Jefe)"
+        return True, role, rname
+
+    return False, None, None
+
+# Pantalla de Login si no está autenticado
+if not st.session_state.authenticated:
+    col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
+    with col_l2:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        with st.form("login_form"):
+            st.markdown("<h2 style='text-align: center;'>🏢 Control Empresas Cloud</h2>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #8b9bb4;'>Inicio de Sesión al Sistema Corporativo</p>", unsafe_allow_html=True)
+            st.markdown("---")
+            user_in = st.text_input("Usuario", placeholder="admin / jefe")
+            pass_in = st.text_input("Contraseña", type="password")
+            submit_login = st.form_submit_button("🔑 Iniciar Sesión", use_container_width=True)
+
+        if submit_login:
+            ok, role, rname = verify_credentials(user_in.strip(), pass_in.strip())
+            if ok:
+                st.session_state.authenticated = True
+                st.session_state.username = user_in.strip()
+                st.session_state.user_role = role
+                st.session_state.role_name = rname
+                st.success(f"Bienvenido {rname}")
+                st.rerun()
+            else:
+                st.error("❌ Usuario o contraseña incorrectos. Verifique sus credenciales.")
+    st.stop()
+
+# -----------------------------------------------------------------------------
+# 3. CONEXIÓN A SUPABASE & PROVEEDOR DE DATOS
+# -----------------------------------------------------------------------------
 def get_secret_or_env(key_name):
     """Obtiene una variable probando st.secrets (Streamlit Cloud) y luego os.getenv (Local)."""
     try:
@@ -152,7 +241,7 @@ def get_supabase_client():
     supabase_key = get_secret_or_env("SUPABASE_SERVICE_KEY") or get_secret_or_env("SUPABASE_KEY")
 
     if not supabase_url or not supabase_key:
-        return None, "No se encontraron las credenciales SUPABASE_URL / SUPABASE_KEY en st.secrets ni en .env"
+        return None, "No se encontraron credenciales en st.secrets ni en .env"
     try:
         from supabase import create_client
         client = create_client(supabase_url, supabase_key)
@@ -161,12 +250,6 @@ def get_supabase_client():
         return None, str(e)
 
 supabase, conn_error = get_supabase_client()
-
-# Diagnóstico de Conexión en Sidebar
-if supabase:
-    st.sidebar.success("✅ Conectado a Supabase")
-else:
-    st.sidebar.error(f"Error al conectar con Supabase: {conn_error}")
 
 DATA_DIR = "data_processed"
 
@@ -180,9 +263,9 @@ def load_local_json(filename):
             return []
     return []
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=15)
 def fetch_all_data():
-    """Consulta la base de datos de Supabase exclusivamente para diagnóstico (fallback deshabilitado)."""
+    """Consulta la base de datos Supabase con fallback transparente a JSONs locales."""
     data = {
         "empresas": [],
         "socios": [],
@@ -195,43 +278,25 @@ def fetch_all_data():
     use_supabase = False
     if supabase:
         try:
-            # Consulta directa a la tabla empresas
-            res_emp = supabase.table("empresas").select("id, razon_social, rfc, tipo_empresa, numero_escritura, rpp, fecha, notaria, domicilio_social, duracion, capital_total_fijo, administrador_unico_gerente, apoderados, comisario, delegado, asa_venta, numero_poder_revocacion, modificacion_estatutos, afac_capi, observacion").execute()
+            res_emp = supabase.table("empresas").select("*").execute()
             if res_emp.data and len(res_emp.data) > 0:
                 data["empresas"] = res_emp.data
-                try:
-                    data["socios"] = supabase.table("socios").select("*").execute().data or []
-                except Exception as es:
-                    st.warning(f"Error consultando socios en Supabase: {es}")
-                try:
-                    data["domicilios"] = supabase.table("domicilios").select("*").execute().data or []
-                except Exception as ed:
-                    st.warning(f"Error consultando domicilios en Supabase: {ed}")
-                try:
-                    data["ventas"] = supabase.table("ventas").select("*").execute().data or []
-                except Exception as ev:
-                    st.warning(f"Error consultando ventas en Supabase: {ev}")
-                try:
-                    data["poderes"] = supabase.table("poderes").select("*").execute().data or []
-                except Exception as ep:
-                    st.warning(f"Error consultando poderes en Supabase: {ep}")
-                try:
-                    data["estatutos"] = supabase.table("estatutos").select("*").execute().data or []
-                except Exception as ee:
-                    st.warning(f"Error consultando estatutos en Supabase: {ee}")
+                data["socios"] = supabase.table("socios").select("*").execute().data or []
+                data["domicilios"] = supabase.table("domicilios").select("*").execute().data or []
+                data["ventas"] = supabase.table("ventas").select("*").execute().data or []
+                data["poderes"] = supabase.table("poderes").select("*").execute().data or []
+                data["estatutos"] = supabase.table("estatutos").select("*").execute().data or []
                 use_supabase = True
-            else:
-                st.warning("⚠️ La base de datos responde pero la tabla 'empresas' tiene 0 registros o RLS está bloqueando la lectura.")
-        except Exception as e:
-            st.error(f"❌ Error al consultar la tabla 'empresas' en Supabase: {e}")
+        except Exception:
             use_supabase = False
 
-    # NOTA: Fallback deshabilitado según requerimiento de diagnóstico
-    # Si se requiere revertir el fallback a archivos locales, descomentar las siguientes líneas:
-    # if not use_supabase:
-    #     data["empresas"] = load_local_json("empresas.json")
-    #     data["socios"] = load_local_json("socios.json")
-    #     ...
+    if not use_supabase:
+        data["empresas"] = load_local_json("empresas.json")
+        data["socios"] = load_local_json("socios.json")
+        data["domicilios"] = load_local_json("domicilios.json")
+        data["ventas"] = load_local_json("ventas.json")
+        data["poderes"] = load_local_json("poderes_revocacion.json") or load_local_json("poderes.json")
+        data["estatutos"] = load_local_json("modificacion_estatutos.json") or load_local_json("estatutos.json")
 
     return data, use_supabase
 
@@ -242,22 +307,39 @@ def save_local_json(filename, content):
         json.dump(content, f, ensure_ascii=False, indent=2)
 
 # -----------------------------------------------------------------------------
-# 3. SIDEBAR NAVIGATION & SEARCH
+# 4. NAVEGACIÓN EN SIDEBAR Y CONTROL DE ROLES
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("# 🏢 Control Corporativo")
-st.sidebar.markdown("---")
+st.sidebar.markdown(f"👤 **Usuario:** `{st.session_state.username}`")
+st.sidebar.markdown(f"🔑 **Perfil:** `{st.session_state.role_name}`")
 
-mode = st.sidebar.radio(
-    "Selecciona Modalidad:",
-    ["🔍 Consultar Empresa", "➕ Registrar Nueva Empresa", "✏️ Modificar / Editar Empresa"]
-)
+if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
+    st.session_state.authenticated = False
+    st.session_state.user_role = None
+    st.session_state.username = None
+    st.session_state.role_name = None
+    st.rerun()
 
 st.sidebar.markdown("---")
 
 all_data, is_db_connected = fetch_all_data()
 empresas = all_data["empresas"]
 
-# Build search options for selector
+if is_db_connected:
+    st.sidebar.success("🟢 Conectado a Supabase")
+else:
+    st.sidebar.info("📂 Modo Archivos Local (/data_processed/)")
+
+# Filtro de Modalidades según Rol de Usuario
+if st.session_state.user_role == "lector":
+    available_modes = ["🔍 Consultar Empresa"]
+else:
+    available_modes = ["🔍 Consultar Empresa", "➕ Registrar Nueva Empresa", "✏️ Modificar / Editar Empresa"]
+
+mode = st.sidebar.radio("Selecciona Modalidad:", available_modes)
+st.sidebar.markdown("---")
+
+# Buscador Inteligente
 emp_options = {}
 for i, emp in enumerate(empresas):
     rs = emp.get("razon_social") or "SIN RAZÓN SOCIAL"
@@ -281,13 +363,13 @@ if mode in ["🔍 Consultar Empresa", "✏️ Modificar / Editar Empresa"]:
         st.sidebar.warning("No hay empresas registradas.")
 
 # -----------------------------------------------------------------------------
-# 4. VISTA 1: CONSULTAR EMPRESA ("MODO WOW")
+# 5. VISTA 1: CONSULTAR EMPRESA ("MODO WOW") CON HISTÓRICO DE SOCIOS
 # -----------------------------------------------------------------------------
 if mode == "🔍 Consultar Empresa":
     if not selected_empresa:
         st.warning("⚠️ No se ha seleccionado ninguna empresa para consultar.")
     else:
-        # Hero Banner / Main Info
+        # Header Principal
         rs = selected_empresa.get("razon_social") or "Sin Razón Social"
         rfc = selected_empresa.get("rfc") or "SIN RFC"
         tipo = selected_empresa.get("tipo_empresa") or "N/A"
@@ -297,7 +379,6 @@ if mode == "🔍 Consultar Empresa":
 
         st.markdown(f"## 🏢 {rs}")
         
-        # Badges
         tags_html = "".join([f'<span class="badge-tag">{t}</span>' for t in tags])
         st.markdown(
             f'<span class="badge-primary">RFC: {rfc}</span>'
@@ -307,7 +388,7 @@ if mode == "🔍 Consultar Empresa":
         )
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Top KPI Cards
+        # KPI Cards
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.markdown(f"""
@@ -347,7 +428,7 @@ if mode == "🔍 Consultar Empresa":
 
         st.write("")
 
-        # Helper to match related records by rfc / razon_social / empresa_id
+        # Matching de registros vinculados
         emp_id = selected_empresa.get("id")
         emp_rfc = selected_empresa.get("rfc")
         emp_name_norm = normalize_name(selected_empresa.get("razon_social"))
@@ -365,7 +446,7 @@ if mode == "🔍 Consultar Empresa":
                     return True
             return False
 
-        # Tabs for details
+        # Pestañas de detalle
         t1, t2, t3, t4, t5 = st.tabs([
             "📋 Constitutivos y Socios",
             "📍 Domicilios Fiscales",
@@ -389,14 +470,53 @@ if mode == "🔍 Consultar Empresa":
                 st.write(f"**Observaciones:** {selected_empresa.get('observacion') or 'Sin observaciones'}")
 
             st.markdown("---")
-            st.subheader("👥 Estructura de Socios / Accionistas")
+            st.subheader("👥 Estructura Histórica de Socios por Fecha Vigente")
+            
+            cd1, cd2 = st.columns([2, 2])
+            with cd1:
+                fecha_consulta = st.date_input(
+                    "📅 Consultar vigencia de socios a la fecha:",
+                    value=datetime.date.today(),
+                    help="Filtra los socios y asambleas de transmisión vigentes a la fecha seleccionada."
+                )
+
             rel_socios = [s for s in all_data["socios"] if is_related(s)]
-            if rel_socios:
-                df_s = pd.DataFrame(rel_socios)
-                cols_to_show = [c for c in ["nombre_socio", "porcentaje", "porcentaje_participacion", "tipo_socio", "origen_tabla"] if c in df_s.columns]
-                st.dataframe(df_s[cols_to_show], use_container_width=True)
+            rel_ventas = [v for v in all_data["ventas"] if is_related(v)]
+
+            # Filtrar asambleas y transmisiones de ventas a la fecha consultada
+            ventas_vigentes = []
+            for v in rel_ventas:
+                v_fec = parse_date_safe(v.get("fecha"))
+                if v_fec is None or v_fec <= fecha_consulta:
+                    ventas_vigentes.append(v)
+
+            # Filtrar socios vigentes a la fecha consultada
+            socios_vigentes = []
+            for s in rel_socios:
+                s_fec = parse_date_safe(s.get("fecha") or s.get("created_at"))
+                if s_fec and s_fec > fecha_consulta:
+                    continue
+                socios_vigentes.append({
+                    "Nombre Socio / Accionista": s.get("nombre_socio"),
+                    "Participación / Acciones": s.get("porcentaje") or s.get("porcentaje_participacion") or "N/D",
+                    "Tipo Socio": s.get("tipo_socio") or "CAPITAL_FIJO",
+                    "Origen / Registro": s.get("origen_tabla") or "CONSTITUCIÓN"
+                })
+
+            if socios_vigentes:
+                st.dataframe(pd.DataFrame(socios_vigentes), use_container_width=True)
+                if ventas_vigentes:
+                    st.markdown(f"**📜 Movimientos de Transmisión de Acciones / Asambleas Vigentes ({len(ventas_vigentes)}):**")
+                    df_v_summary = pd.DataFrame([{
+                        "Nº Escritura": v.get("numero_escritura") or "N/D",
+                        "Fecha": v.get("fecha") or "N/D",
+                        "Documento": v.get("documento") or "ASAMBLEA VENTA ACCIONES",
+                        "Notaría": v.get("notaria") or "N/D",
+                        "Detalle / Socios Cap. Variable": v.get("socios_capital_variable") or v.get("observaciones") or "N/D"
+                    } for v in ventas_vigentes])
+                    st.dataframe(df_v_summary, use_container_width=True)
             else:
-                st.info("ℹ️ No hay registros adicionales en esta categoría.")
+                st.info(f"ℹ️ No hay registros adicionales de socios en la fecha seleccionada ({fecha_consulta.strftime('%d/%m/%Y')}).")
 
         with t2:
             st.subheader("📍 Domicilios Registrados")
@@ -439,126 +559,129 @@ if mode == "🔍 Consultar Empresa":
                 st.info("ℹ️ No hay registros adicionales en esta categoría.")
 
 # -----------------------------------------------------------------------------
-# 5. VISTA 2: REGISTRAR NUEVA EMPRESA
+# 6. VISTA 2: REGISTRAR NUEVA EMPRESA (SOLO ADMIN / HERMANA)
 # -----------------------------------------------------------------------------
 elif mode == "➕ Registrar Nueva Empresa":
-    st.markdown("## ➕ Registrar Nueva Empresa en el Sistema")
-    st.markdown("Complete el formulario para incorporar una nueva sociedad al expediente corporativo.")
-    st.markdown("---")
+    if st.session_state.user_role != "admin":
+        st.error("🚫 Acceso Denegado: Su perfil no tiene permisos para crear nuevas empresas.")
+    else:
+        st.markdown("## ➕ Registrar Nueva Empresa en el Sistema")
+        st.markdown("Complete el formulario para incorporar una nueva sociedad al expediente corporativo.")
+        st.markdown("---")
 
-    with st.form("form_nueva_empresa"):
-        st.subheader("1. Datos Generales de la Sociedad")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            new_rs = st.text_input("Razón Social / Denominación *", placeholder="EJ. ACME S.A. DE C.V.")
-            new_rfc = st.text_input("RFC (12 o 13 caracteres)", placeholder="ACM990101XXX")
-        with col2:
-            new_tipo = st.text_input("Tipo de Empresa", placeholder="EJ. SA DE CV, S DE RL")
-            new_dom_social = st.text_input("Domicilio Social", placeholder="Ciudad / Estado")
-        with col3:
-            new_duracion = st.text_input("Duración", value="INDEFINIDA")
-            new_capital = st.text_input("Capital Total Fijo ($)", placeholder="100000")
+        with st.form("form_nueva_empresa"):
+            st.subheader("1. Datos Generales de la Sociedad")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                new_rs = st.text_input("Razón Social / Denominación *", placeholder="EJ. ACME S.A. DE C.V.")
+                new_rfc = st.text_input("RFC (12 o 13 caracteres)", placeholder="ACM990101XXX")
+            with col2:
+                new_tipo = st.text_input("Tipo de Empresa", placeholder="EJ. SA DE CV, S DE RL")
+                new_dom_social = st.text_input("Domicilio Social", placeholder="Ciudad / Estado")
+            with col3:
+                new_duracion = st.text_input("Duración", value="INDEFINIDA")
+                new_capital = st.text_input("Capital Total Fijo ($)", placeholder="100000")
 
-        st.subheader("2. Datos de Protocolización")
-        col4, col5, col6, col7 = st.columns(4)
-        with col4:
-            new_escritura = st.text_input("Nº Escritura", placeholder="12345")
-        with col5:
-            new_rpp = st.text_input("Registro RPP", placeholder="12345*1")
-        with col6:
-            new_fecha = st.date_input("Fecha de Protocolización", value=datetime.date.today())
-        with col7:
-            new_notaria = st.text_input("Notaría / Notario", placeholder="Notaría Nº 4")
+            st.subheader("2. Datos de Protocolización")
+            col4, col5, col6, col7 = st.columns(4)
+            with col4:
+                new_escritura = st.text_input("Nº Escritura", placeholder="12345")
+            with col5:
+                new_rpp = st.text_input("Registro RPP", placeholder="12345*1")
+            with col6:
+                new_fecha = st.date_input("Fecha de Protocolización", value=datetime.date.today())
+            with col7:
+                new_notaria = st.text_input("Notaría / Notario", placeholder="Notaría Nº 4")
 
-        st.subheader("3. Gobierno Corporativo Inicial")
-        col8, col9, col10, col11 = st.columns(4)
-        with col8:
-            new_admin = st.text_input("Administrador Único / Gerente")
-        with col9:
-            new_apod = st.text_input("Apoderados")
-        with col10:
-            new_comisario = st.text_input("Comisario")
-        with col11:
-            new_delegado = st.text_input("Delegado")
+            st.subheader("3. Gobierno Corporativo Inicial")
+            col8, col9, col10, col11 = st.columns(4)
+            with col8:
+                new_admin = st.text_input("Administrador Único / Gerente")
+            with col9:
+                new_apod = st.text_input("Apoderados")
+            with col10:
+                new_comisario = st.text_input("Comisario")
+            with col11:
+                new_delegado = st.text_input("Delegado")
 
-        new_obs = st.text_area("Observaciones Generales", placeholder="Anotaciones importantes...")
+            new_obs = st.text_area("Observaciones Generales", placeholder="Anotaciones importantes...")
 
-        st.subheader("4. Socios Iniciales (Hasta 5)")
-        socios_inputs = []
-        for i in range(1, 6):
-            c_nom, c_pct = st.columns([3, 1])
-            with c_nom:
-                s_nom = st.text_input(f"Nombre Socio {i}", key=f"s_nom_{i}")
-            with c_pct:
-                s_pct = st.text_input(f"% Participación {i}", key=f"s_pct_{i}")
-            if s_nom:
-                socios_inputs.append({"nombre_socio": s_nom.strip(), "porcentaje": s_pct.strip() if s_pct else None})
+            st.subheader("4. Socios Iniciales (Hasta 5)")
+            socios_inputs = []
+            for i in range(1, 6):
+                c_nom, c_pct = st.columns([3, 1])
+                with c_nom:
+                    s_nom = st.text_input(f"Nombre Socio {i}", key=f"s_nom_{i}")
+                with c_pct:
+                    s_pct = st.text_input(f"% Participación {i}", key=f"s_pct_{i}")
+                if s_nom:
+                    socios_inputs.append({"nombre_socio": s_nom.strip(), "porcentaje": s_pct.strip() if s_pct else None})
 
-        submit_new = st.form_submit_button("💾 Guardar Empresa en Base de Datos", use_container_width=True)
+            submit_new = st.form_submit_button("💾 Guardar Empresa en Base de Datos", use_container_width=True)
 
-    if submit_new:
-        if not new_rs:
-            st.error("⚠️ El campo Razón Social es obligatorio.")
-        else:
-            new_empresa_dict = {
-                "razon_social": new_rs.strip().upper(),
-                "rfc": new_rfc.strip().upper() if new_rfc else None,
-                "tipo_empresa": new_tipo.strip().upper() if new_tipo else None,
-                "numero_escritura": new_escritura.strip() if new_escritura else None,
-                "rpp": new_rpp.strip() if new_rpp else None,
-                "fecha": str(new_fecha),
-                "notaria": new_notaria.strip() if new_notaria else None,
-                "domicilio_social": new_dom_social.strip() if new_dom_social else None,
-                "duracion": new_duracion.strip() if new_duracion else None,
-                "capital_total_fijo": new_capital.strip() if new_capital else None,
-                "administrador_unico_gerente": new_admin.strip() if new_admin else None,
-                "apoderados": new_apod.strip() if new_apod else None,
-                "comisario": new_comisario.strip() if new_comisario else None,
-                "delegado": new_delegado.strip() if new_delegado else None,
-                "observacion": new_obs.strip() if new_obs else None,
-                "origen_tags": ["CAPTURA_DIRECTA"]
-            }
+        if submit_new:
+            if not new_rs:
+                st.error("⚠️ El campo Razón Social es obligatorio.")
+            else:
+                new_empresa_dict = {
+                    "razon_social": new_rs.strip().upper(),
+                    "rfc": new_rfc.strip().upper() if new_rfc else None,
+                    "tipo_empresa": new_tipo.strip().upper() if new_tipo else None,
+                    "numero_escritura": new_escritura.strip() if new_escritura else None,
+                    "rpp": new_rpp.strip() if new_rpp else None,
+                    "fecha": str(new_fecha),
+                    "notaria": new_notaria.strip() if new_notaria else None,
+                    "domicilio_social": new_dom_social.strip() if new_dom_social else None,
+                    "duracion": new_duracion.strip() if new_duracion else None,
+                    "capital_total_fijo": new_capital.strip() if new_capital else None,
+                    "administrador_unico_gerente": new_admin.strip() if new_admin else None,
+                    "apoderados": new_apod.strip() if new_apod else None,
+                    "comisario": new_comisario.strip() if new_comisario else None,
+                    "delegado": new_delegado.strip() if new_delegado else None,
+                    "observacion": new_obs.strip() if new_obs else None,
+                    "origen_tags": ["CAPTURA_DIRECTA"]
+                }
 
-            saved_in_db = False
-            if supabase:
-                try:
-                    clean_dict = {k: v for k, v in new_empresa_dict.items() if k != "origen_tags"}
-                    res = supabase.table("empresas").insert([clean_dict]).execute()
-                    if res.data:
-                        saved_in_db = True
-                        new_emp_id = res.data[0].get("id")
-                        if new_emp_id and socios_inputs:
-                            for soc in socios_inputs:
-                                soc["empresa_id"] = new_emp_id
-                            supabase.table("socios").insert(socios_inputs).execute()
-                except Exception as e:
-                    st.warning(f"No se pudo guardar en Supabase (RLS/Conexión): {e}")
+                if supabase:
+                    try:
+                        clean_dict = {k: v for k, v in new_empresa_dict.items() if k != "origen_tags"}
+                        res = supabase.table("empresas").insert([clean_dict]).execute()
+                        if res.data:
+                            new_emp_id = res.data[0].get("id")
+                            if new_emp_id and socios_inputs:
+                                for soc in socios_inputs:
+                                    soc["empresa_id"] = new_emp_id
+                                supabase.table("socios").insert(socios_inputs).execute()
+                    except Exception as e:
+                        st.warning(f"No se pudo guardar en Supabase: {e}")
 
-            local_empresas = load_local_json("empresas.json")
-            local_empresas.append(new_empresa_dict)
-            save_local_json("empresas.json", local_empresas)
+                local_empresas = load_local_json("empresas.json")
+                local_empresas.append(new_empresa_dict)
+                save_local_json("empresas.json", local_empresas)
 
-            if socios_inputs:
-                local_socios = load_local_json("socios.json")
-                for soc in socios_inputs:
-                    local_socios.append({
-                        "rfc_empresa": new_empresa_dict["rfc"],
-                        "razon_social_empresa": new_empresa_dict["razon_social"],
-                        "nombre_socio": soc["nombre_socio"],
-                        "porcentaje_participacion": soc["porcentaje"],
-                        "tipo_socio": "INICIAL",
-                        "origen_tabla": "CAPTURA_DIRECTA"
-                    })
-                save_local_json("socios.json", local_socios)
+                if socios_inputs:
+                    local_socios = load_local_json("socios.json")
+                    for soc in socios_inputs:
+                        local_socios.append({
+                            "rfc_empresa": new_empresa_dict["rfc"],
+                            "razon_social_empresa": new_empresa_dict["razon_social"],
+                            "nombre_socio": soc["nombre_socio"],
+                            "porcentaje_participacion": soc["porcentaje"],
+                            "tipo_socio": "INICIAL",
+                            "origen_tabla": "CAPTURA_DIRECTA"
+                        })
+                    save_local_json("socios.json", local_socios)
 
-            st.cache_data.clear()
-            st.success(f"🎉 ¡Empresa '{new_rs}' registrada exitosamente en el sistema!")
+                st.cache_data.clear()
+                st.success(f"🎉 ¡Empresa '{new_rs}' registrada exitosamente en el sistema!")
 
 # -----------------------------------------------------------------------------
-# 6. VISTA 3: MODIFICAR / EDITAR EMPRESA
+# 7. VISTA 3: MODIFICAR / EDITAR EMPRESA (SOLO ADMIN / HERMANA)
 # -----------------------------------------------------------------------------
 elif mode == "✏️ Modificar / Editar Empresa":
-    if not selected_empresa:
+    if st.session_state.user_role != "admin":
+        st.error("🚫 Acceso Denegado: Su perfil no tiene permisos para editar información.")
+    elif not selected_empresa:
         st.warning("⚠️ Selecciona una empresa en la barra lateral para editar sus datos.")
     else:
         st.markdown(f"## ✏️ Editar Empresa: {selected_empresa.get('razon_social')}")
