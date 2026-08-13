@@ -131,7 +131,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. SUPABASE CONNECTION & DATA PROVIDER
+# 2. SUPABASE CONNECTION & DIAGNOSTICS PROVIDER
 # -----------------------------------------------------------------------------
 load_dotenv()
 
@@ -152,16 +152,21 @@ def get_supabase_client():
     supabase_key = get_secret_or_env("SUPABASE_SERVICE_KEY") or get_secret_or_env("SUPABASE_KEY")
 
     if not supabase_url or not supabase_key:
-        st.error("⚠️ No se encontraron las credenciales de Supabase en Secrets ni en .env")
-        return None
+        return None, "No se encontraron las credenciales SUPABASE_URL / SUPABASE_KEY en st.secrets ni en .env"
     try:
         from supabase import create_client
-        return create_client(supabase_url, supabase_key)
+        client = create_client(supabase_url, supabase_key)
+        return client, None
     except Exception as e:
-        print("Supabase connection error:", e)
-        return None
+        return None, str(e)
 
-supabase = get_supabase_client()
+supabase, conn_error = get_supabase_client()
+
+# Diagnóstico de Conexión en Sidebar
+if supabase:
+    st.sidebar.success("✅ Conectado a Supabase")
+else:
+    st.sidebar.error(f"Error al conectar con Supabase: {conn_error}")
 
 DATA_DIR = "data_processed"
 
@@ -175,9 +180,9 @@ def load_local_json(filename):
             return []
     return []
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=10)
 def fetch_all_data():
-    """Reads data from Supabase if accessible, otherwise falls back seamlessly to local JSONs."""
+    """Consulta la base de datos de Supabase exclusivamente para diagnóstico (fallback deshabilitado)."""
     data = {
         "empresas": [],
         "socios": [],
@@ -190,25 +195,43 @@ def fetch_all_data():
     use_supabase = False
     if supabase:
         try:
-            res_emp = supabase.table("empresas").select("*").execute()
+            # Consulta directa a la tabla empresas
+            res_emp = supabase.table("empresas").select("id, razon_social, rfc, tipo_empresa, numero_escritura, rpp, fecha, notaria, domicilio_social, duracion, capital_total_fijo, administrador_unico_gerente, apoderados, comisario, delegado, asa_venta, numero_poder_revocacion, modificacion_estatutos, afac_capi, observacion").execute()
             if res_emp.data and len(res_emp.data) > 0:
                 data["empresas"] = res_emp.data
-                data["socios"] = supabase.table("socios").select("*").execute().data or []
-                data["domicilios"] = supabase.table("domicilios").select("*").execute().data or []
-                data["ventas"] = supabase.table("ventas").select("*").execute().data or []
-                data["poderes"] = supabase.table("poderes").select("*").execute().data or []
-                data["estatutos"] = supabase.table("estatutos").select("*").execute().data or []
+                try:
+                    data["socios"] = supabase.table("socios").select("*").execute().data or []
+                except Exception as es:
+                    st.warning(f"Error consultando socios en Supabase: {es}")
+                try:
+                    data["domicilios"] = supabase.table("domicilios").select("*").execute().data or []
+                except Exception as ed:
+                    st.warning(f"Error consultando domicilios en Supabase: {ed}")
+                try:
+                    data["ventas"] = supabase.table("ventas").select("*").execute().data or []
+                except Exception as ev:
+                    st.warning(f"Error consultando ventas en Supabase: {ev}")
+                try:
+                    data["poderes"] = supabase.table("poderes").select("*").execute().data or []
+                except Exception as ep:
+                    st.warning(f"Error consultando poderes en Supabase: {ep}")
+                try:
+                    data["estatutos"] = supabase.table("estatutos").select("*").execute().data or []
+                except Exception as ee:
+                    st.warning(f"Error consultando estatutos en Supabase: {ee}")
                 use_supabase = True
-        except Exception:
+            else:
+                st.warning("⚠️ La base de datos responde pero la tabla 'empresas' tiene 0 registros o RLS está bloqueando la lectura.")
+        except Exception as e:
+            st.error(f"❌ Error al consultar la tabla 'empresas' en Supabase: {e}")
             use_supabase = False
 
-    if not use_supabase:
-        data["empresas"] = load_local_json("empresas.json")
-        data["socios"] = load_local_json("socios.json")
-        data["domicilios"] = load_local_json("domicilios.json")
-        data["ventas"] = load_local_json("ventas.json")
-        data["poderes"] = load_local_json("poderes_revocacion.json") or load_local_json("poderes.json")
-        data["estatutos"] = load_local_json("modificacion_estatutos.json") or load_local_json("estatutos.json")
+    # NOTA: Fallback deshabilitado según requerimiento de diagnóstico
+    # Si se requiere revertir el fallback a archivos locales, descomentar las siguientes líneas:
+    # if not use_supabase:
+    #     data["empresas"] = load_local_json("empresas.json")
+    #     data["socios"] = load_local_json("socios.json")
+    #     ...
 
     return data, use_supabase
 
@@ -233,11 +256,6 @@ st.sidebar.markdown("---")
 
 all_data, is_db_connected = fetch_all_data()
 empresas = all_data["empresas"]
-
-if is_db_connected:
-    st.sidebar.success("🟢 Conectado a Supabase PostgreSQL")
-else:
-    st.sidebar.info("📂 Modo Archivos Local (/data_processed/)")
 
 # Build search options for selector
 emp_options = {}
