@@ -24,14 +24,12 @@ def parse_date_safe(val):
     if isinstance(val, datetime.date):
         return val
     val_str = str(val).strip()
-    # Formato YYYY-MM-DD
     m1 = re.search(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})', val_str)
     if m1:
         try:
             return datetime.date(int(m1.group(1)), int(m1.group(2)), int(m1.group(3)))
         except ValueError:
             pass
-    # Formato DD/MM/YYYY
     m2 = re.search(r'(\d{1,2})[-/](\d{1,2})[-/](\d{4})', val_str)
     if m2:
         try:
@@ -39,6 +37,21 @@ def parse_date_safe(val):
         except ValueError:
             pass
     return None
+
+def format_as_bullet_list(text):
+    """Formatea textos largos o múltiples elementos (poderes, apoderados, escrituras) como listas con viñetas."""
+    if not text:
+        return "N/D"
+    text_str = str(text).strip()
+    if not text_str or text_str.upper() in ["N/A", "N/D", "X", "NONE", "NULL"]:
+        return "N/D"
+    
+    # Separar por saltos de línea, punto y coma, o comas
+    parts = re.split(r'[\n;]|\s*,\s*', text_str)
+    items = [p.strip() for p in parts if p.strip()]
+    if len(items) > 1:
+        return "\n".join([f"- {it}" for it in items])
+    return text_str
 
 st.set_page_config(
     page_title="Control Empresas Cloud",
@@ -80,7 +93,7 @@ st.markdown("""
         margin-bottom: 6px;
     }
     .metric-value {
-        font-size: 1.4rem;
+        font-size: 1.3rem;
         font-weight: 700;
         color: #ffffff;
     }
@@ -168,7 +181,7 @@ if "role_name" not in st.session_state:
     st.session_state.role_name = None
 
 def verify_credentials(user_input, pass_input):
-    """Verifica credenciales contra st.secrets['passwords'], .env o valores por defecto."""
+    """Verifica credenciales según especificaciones exactas de roles y usuarios."""
     load_dotenv()
     secrets_passwords = {}
     try:
@@ -177,21 +190,31 @@ def verify_credentials(user_input, pass_input):
     except Exception:
         pass
     
-    # 1. Perfil Admin (Hermana)
-    admin_pass = secrets_passwords.get("admin") or os.getenv("ADMIN_PASSWORD", "admin")
-    if user_input.lower() == "admin" and pass_input == admin_pass:
-        return True, "admin", "Administrador (Hermana)"
+    u_lower = user_input.lower().strip()
 
-    # 2. Perfil Lector (Jefe)
-    lector_pass = secrets_passwords.get("jefe") or secrets_passwords.get("lector") or os.getenv("LECTOR_PASSWORD", "jefe")
-    if user_input.lower() in ["jefe", "lector"] and pass_input == lector_pass:
-        return True, "lector", "Consultor / Lector (Jefe)"
+    # 1. Administrador Central ('admin' o 'diego')
+    admin_pass = secrets_passwords.get("admin") or secrets_passwords.get("diego") or os.getenv("ADMIN_PASSWORD", "admin")
+    if u_lower in ["admin", "diego"] and pass_input == admin_pass:
+        return True, "admin_central", "Administrador Central"
 
-    # 3. Consulta dinámica en st.secrets["passwords"]
+    # 2. Administrador ('hermana')
+    hermana_pass = secrets_passwords.get("hermana") or os.getenv("HERMANA_PASSWORD", "hermana")
+    if u_lower == "hermana" and pass_input == hermana_pass:
+        return True, "admin", "Administrador"
+
+    # 3. Consultor / Lector ('jefe')
+    jefe_pass = secrets_passwords.get("jefe") or secrets_passwords.get("lector") or os.getenv("JEFE_PASSWORD", "jefe")
+    if u_lower in ["jefe", "lector"] and pass_input == jefe_pass:
+        return True, "lector", "Consultor / Lector"
+
+    # Verificación en st.secrets si se especifican otros usuarios
     if user_input in secrets_passwords and pass_input == secrets_passwords[user_input]:
-        role = "admin" if "admin" in user_input.lower() else "lector"
-        rname = "Administrador (Hermana)" if role == "admin" else "Consultor / Lector (Jefe)"
-        return True, role, rname
+        if u_lower in ["admin", "diego"]:
+            return True, "admin_central", "Administrador Central"
+        elif u_lower == "hermana":
+            return True, "admin", "Administrador"
+        else:
+            return True, "lector", "Consultor / Lector"
 
     return False, None, None
 
@@ -202,9 +225,9 @@ if not st.session_state.authenticated:
         st.markdown("<br><br>", unsafe_allow_html=True)
         with st.form("login_form"):
             st.markdown("<h2 style='text-align: center;'>🏢 Control Empresas Cloud</h2>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align: center; color: #8b9bb4;'>Inicio de Sesión al Sistema Corporativo</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align: center; color: #8b9bb4;'>Acceso al Expediente Corporativo</p>", unsafe_allow_html=True)
             st.markdown("---")
-            user_in = st.text_input("Usuario", placeholder="admin / jefe")
+            user_in = st.text_input("Usuario", placeholder="admin / diego / hermana / jefe")
             pass_in = st.text_input("Contraseña", type="password")
             submit_login = st.form_submit_button("🔑 Iniciar Sesión", use_container_width=True)
 
@@ -218,7 +241,7 @@ if not st.session_state.authenticated:
                 st.success(f"Bienvenido {rname}")
                 st.rerun()
             else:
-                st.error("❌ Usuario o contraseña incorrectos. Verifique sus credenciales.")
+                st.error("❌ Usuario o contraseña incorrectos.")
     st.stop()
 
 # -----------------------------------------------------------------------------
@@ -265,7 +288,7 @@ def load_local_json(filename):
 
 @st.cache_data(ttl=15)
 def fetch_all_data():
-    """Consulta la base de datos Supabase con fallback transparente a JSONs locales."""
+    """Consulta Supabase con fallback transparente a JSONs locales."""
     data = {
         "empresas": [],
         "socios": [],
@@ -330,11 +353,11 @@ if is_db_connected:
 else:
     st.sidebar.info("📂 Modo Archivos Local (/data_processed/)")
 
-# Filtro de Modalidades según Rol de Usuario
-if st.session_state.user_role == "lector":
-    available_modes = ["🔍 Consultar Empresa"]
-else:
+# Filtro de Modalidades por Rol
+if st.session_state.user_role in ["admin_central", "admin"]:
     available_modes = ["🔍 Consultar Empresa", "➕ Registrar Nueva Empresa", "✏️ Modificar / Editar Empresa"]
+else:
+    available_modes = ["🔍 Consultar Empresa"]
 
 mode = st.sidebar.radio("Selecciona Modalidad:", available_modes)
 st.sidebar.markdown("---")
@@ -363,7 +386,7 @@ if mode in ["🔍 Consultar Empresa", "✏️ Modificar / Editar Empresa"]:
         st.sidebar.warning("No hay empresas registradas.")
 
 # -----------------------------------------------------------------------------
-# 5. VISTA 1: CONSULTAR EMPRESA ("MODO WOW") CON HISTÓRICO DE SOCIOS
+# 5. VISTA 1: CONSULTAR EMPRESA ("MODO WOW")
 # -----------------------------------------------------------------------------
 if mode == "🔍 Consultar Empresa":
     if not selected_empresa:
@@ -421,7 +444,7 @@ if mode == "🔍 Consultar Empresa":
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-label">Administrador / Gerente</div>
-                <div class="metric-value" style="font-size: 1.1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{selected_empresa.get('administrador_unico_gerente') or 'N/D'}</div>
+                <div class="metric-value">{selected_empresa.get('administrador_unico_gerente') or 'N/D'}</div>
                 <div class="metric-subtitle">Comisario: {selected_empresa.get('comisario') or 'N/D'}</div>
             </div>
             """, unsafe_allow_html=True)
@@ -459,64 +482,72 @@ if mode == "🔍 Consultar Empresa":
             st.subheader("Ficha de Gobierno Corporativo")
             col_a, col_b = st.columns(2)
             with col_a:
-                st.write(f"**Domicilio Social:** {selected_empresa.get('domicilio_social') or 'N/D'}")
-                st.write(f"**Apoderados:** {selected_empresa.get('apoderados') or 'N/D'}")
-                st.write(f"**Delegado:** {selected_empresa.get('delegado') or 'N/D'}")
-                st.write(f"**ASA Venta:** {selected_empresa.get('asa_venta') or 'N/D'}")
+                st.markdown("**Domicilio Social:**")
+                st.markdown(format_as_bullet_list(selected_empresa.get('domicilio_social')))
+                st.markdown("**Apoderados:**")
+                st.markdown(format_as_bullet_list(selected_empresa.get('apoderados')))
+                st.markdown("**Delegado:**")
+                st.markdown(format_as_bullet_list(selected_empresa.get('delegado')))
+                st.markdown("**ASA Venta:**")
+                st.markdown(format_as_bullet_list(selected_empresa.get('asa_venta')))
             with col_b:
-                st.write(f"**Nº Poder / Revocación:** {selected_empresa.get('numero_poder_revocacion') or 'N/D'}")
-                st.write(f"**Modificación Estatutos:** {selected_empresa.get('modificacion_estatutos') or 'N/D'}")
-                st.write(f"**AFAC / CAPI:** {selected_empresa.get('afac_capi') or 'N/D'}")
-                st.write(f"**Observaciones:** {selected_empresa.get('observacion') or 'Sin observaciones'}")
+                st.markdown("**Nº Poder / Revocación:**")
+                st.markdown(format_as_bullet_list(selected_empresa.get('numero_poder_revocacion')))
+                st.markdown("**Modificación Estatutos:**")
+                st.markdown(format_as_bullet_list(selected_empresa.get('modificacion_estatutos')))
+                st.markdown("**AFAC / CAPI:**")
+                st.markdown(format_as_bullet_list(selected_empresa.get('afac_capi')))
+                st.markdown("**Observaciones:**")
+                st.markdown(format_as_bullet_list(selected_empresa.get('observacion')))
 
             st.markdown("---")
-            st.subheader("👥 Estructura Histórica de Socios por Fecha Vigente")
+            st.subheader("👥 Estructura de Socios / Accionistas")
             
             cd1, cd2 = st.columns([2, 2])
             with cd1:
                 fecha_consulta = st.date_input(
-                    "📅 Consultar vigencia de socios a la fecha:",
+                    "📅 Filtrar transmisiones de acciones a la fecha (Opcional):",
                     value=datetime.date.today(),
-                    help="Filtra los socios y asambleas de transmisión vigentes a la fecha seleccionada."
+                    help="Permite consultar si hubo transmisiones de acciones registradas antes de la fecha seleccionada."
                 )
 
             rel_socios = [s for s in all_data["socios"] if is_related(s)]
             rel_ventas = [v for v in all_data["ventas"] if is_related(v)]
 
-            # Filtrar asambleas y transmisiones de ventas a la fecha consultada
-            ventas_vigentes = []
+            # 1. MOSTRAR SIEMPRE LA LISTA DE SOCIOS VINCULADOS DE LA TABLA 'socios'
+            if rel_socios:
+                df_s = pd.DataFrame(rel_socios)
+                cols_to_show = [c for c in ["nombre_socio", "porcentaje", "porcentaje_participacion", "tipo_socio", "origen_tabla"] if c in df_s.columns]
+                rename_dict = {
+                    "nombre_socio": "Socio / Accionista",
+                    "porcentaje": "Participación / Acciones",
+                    "porcentaje_participacion": "Participación / Acciones",
+                    "tipo_socio": "Tipo de Socio",
+                    "origen_tabla": "Origen / Registro"
+                }
+                st.dataframe(df_s[cols_to_show].rename(columns=rename_dict), use_container_width=True)
+            else:
+                st.info("ℹ️ No hay registros de socios registrados para esta empresa.")
+
+            # 2. MOSTRAR TRANSMISIONES / VENTAS DE ACCIONES HASTA LA FECHA CONSULTADA
+            ventas_hasta_fecha = []
             for v in rel_ventas:
                 v_fec = parse_date_safe(v.get("fecha"))
                 if v_fec is None or v_fec <= fecha_consulta:
-                    ventas_vigentes.append(v)
+                    ventas_hasta_fecha.append(v)
 
-            # Filtrar socios vigentes a la fecha consultada
-            socios_vigentes = []
-            for s in rel_socios:
-                s_fec = parse_date_safe(s.get("fecha") or s.get("created_at"))
-                if s_fec and s_fec > fecha_consulta:
-                    continue
-                socios_vigentes.append({
-                    "Nombre Socio / Accionista": s.get("nombre_socio"),
-                    "Participación / Acciones": s.get("porcentaje") or s.get("porcentaje_participacion") or "N/D",
-                    "Tipo Socio": s.get("tipo_socio") or "CAPITAL_FIJO",
-                    "Origen / Registro": s.get("origen_tabla") or "CONSTITUCIÓN"
-                })
-
-            if socios_vigentes:
-                st.dataframe(pd.DataFrame(socios_vigentes), use_container_width=True)
-                if ventas_vigentes:
-                    st.markdown(f"**📜 Movimientos de Transmisión de Acciones / Asambleas Vigentes ({len(ventas_vigentes)}):**")
-                    df_v_summary = pd.DataFrame([{
-                        "Nº Escritura": v.get("numero_escritura") or "N/D",
-                        "Fecha": v.get("fecha") or "N/D",
-                        "Documento": v.get("documento") or "ASAMBLEA VENTA ACCIONES",
-                        "Notaría": v.get("notaria") or "N/D",
-                        "Detalle / Socios Cap. Variable": v.get("socios_capital_variable") or v.get("observaciones") or "N/D"
-                    } for v in ventas_vigentes])
-                    st.dataframe(df_v_summary, use_container_width=True)
+            if ventas_hasta_fecha:
+                st.markdown(f"**📜 Transmisiones / Asambleas de Acciones Registradas hasta el {fecha_consulta.strftime('%d/%m/%Y')} ({len(ventas_hasta_fecha)}):**")
+                df_v_summary = pd.DataFrame([{
+                    "Nº Escritura": v.get("numero_escritura") or "N/D",
+                    "Fecha": v.get("fecha") or "N/D",
+                    "Documento": v.get("documento") or "ASAMBLEA VENTA ACCIONES",
+                    "Notaría": v.get("notaria") or "N/D",
+                    "Detalle / Socios Cap. Variable": format_as_bullet_list(v.get("socios_capital_variable") or v.get("observaciones"))
+                } for v in ventas_hasta_fecha])
+                st.dataframe(df_v_summary, use_container_width=True)
             else:
-                st.info(f"ℹ️ No hay registros adicionales de socios en la fecha seleccionada ({fecha_consulta.strftime('%d/%m/%Y')}).")
+                st.caption(f"ℹ️ No hay transmisiones de acciones adicionales registradas en o antes del {fecha_consulta.strftime('%d/%m/%Y')}.")
 
         with t2:
             st.subheader("📍 Domicilios Registrados")
@@ -559,10 +590,10 @@ if mode == "🔍 Consultar Empresa":
                 st.info("ℹ️ No hay registros adicionales en esta categoría.")
 
 # -----------------------------------------------------------------------------
-# 6. VISTA 2: REGISTRAR NUEVA EMPRESA (SOLO ADMIN / HERMANA)
+# 6. VISTA 2: REGISTRAR NUEVA EMPRESA
 # -----------------------------------------------------------------------------
 elif mode == "➕ Registrar Nueva Empresa":
-    if st.session_state.user_role != "admin":
+    if st.session_state.user_role not in ["admin_central", "admin"]:
         st.error("🚫 Acceso Denegado: Su perfil no tiene permisos para crear nuevas empresas.")
     else:
         st.markdown("## ➕ Registrar Nueva Empresa en el Sistema")
@@ -676,10 +707,10 @@ elif mode == "➕ Registrar Nueva Empresa":
                 st.success(f"🎉 ¡Empresa '{new_rs}' registrada exitosamente en el sistema!")
 
 # -----------------------------------------------------------------------------
-# 7. VISTA 3: MODIFICAR / EDITAR EMPRESA (SOLO ADMIN / HERMANA)
+# 7. VISTA 3: MODIFICAR / EDITAR EMPRESA
 # -----------------------------------------------------------------------------
 elif mode == "✏️ Modificar / Editar Empresa":
-    if st.session_state.user_role != "admin":
+    if st.session_state.user_role not in ["admin_central", "admin"]:
         st.error("🚫 Acceso Denegado: Su perfil no tiene permisos para editar información.")
     elif not selected_empresa:
         st.warning("⚠️ Selecciona una empresa en la barra lateral para editar sus datos.")
